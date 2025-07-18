@@ -1,0 +1,54 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    gateway:
+      discovery:
+        locator:
+          enabled: true
+          lower-case-service-id: true
+      filter:
+        preserve-host-header:
+          enabled: true
+      httpclient:
+        pool:
+          max-connections: 10000
+        connect-timeout: 60000
+        response-timeout: 60000
+      routes:
+        - id: order-service
+          predicates:
+            - Path=/api/orders/**
+          uri: lb://order-service
+
+        - id: shipment-service
+          predicates:
+            - Path=/api/shipments/**
+          uri: lb://shipment-service
+
+        - id: payment-service
+          predicates:
+            - Path=/api/payments/**
+          uri: lb://payment-service
+
+        - id: blockchain-service
+          predicates:
+            - Path=/api/blockchain/**
+          uri: lb://blockchain-integration
+
+eureka:
+  client:
+    serviceUrl:
+      defaultZone: http://admin:admin@localhost:8761/eureka/
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"
+  endpoint:
+    health:
+      show-details: always 
