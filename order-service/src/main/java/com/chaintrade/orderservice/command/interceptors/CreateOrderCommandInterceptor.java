@@ -5,7 +5,6 @@ import com.chaintrade.orderservice.core.data.OrderLookupEntity;
 import com.chaintrade.orderservice.core.data.OrderLookupRepository;
 import com.chaintrade.orderservice.core.data.OrderStatus;
 import jakarta.inject.Inject;
-import jakarta.ws.rs.BadRequestException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.axonframework.commandhandling.CommandMessage;

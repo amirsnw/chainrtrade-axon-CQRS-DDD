@@ -9,6 +9,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.axonframework.config.ProcessingGroup;
 import org.axonframework.eventhandling.EventHandler;
+import org.axonframework.messaging.interceptors.ExceptionHandler;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -20,6 +21,18 @@ public class OrderProjection {
     public OrderProjection(OrderRepository orderRepository, ObjectMapper objectMapper) {
         this.orderRepository = orderRepository;
         this.objectMapper = objectMapper;
+    }
+
+    @ExceptionHandler
+    public void handle(Exception ex) throws Exception {
+        // Log error message
+        throw ex;
+    }
+
+    @ExceptionHandler(resultType = IllegalArgumentException.class)
+    public void handle(IllegalArgumentException ex) {
+        // Log error message
+        throw ex;
     }
 
     @EventHandler

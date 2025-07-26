@@ -5,9 +5,9 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.time.ZonedDateTime;
-import java.util.Calendar;
 
 @Entity
 @Table(name = "order_lookup")
@@ -15,6 +15,7 @@ import java.util.Calendar;
 @NoArgsConstructor
 @AllArgsConstructor
 public class OrderLookupEntity implements Serializable {
+    @Serial
     private static final long serialVersionUID = 1L;
 
     @Id

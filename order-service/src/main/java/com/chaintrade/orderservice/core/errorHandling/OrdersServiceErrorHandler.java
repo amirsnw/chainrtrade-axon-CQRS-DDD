@@ -1,6 +1,7 @@
 package com.chaintrade.orderservice.core.errorHandling;
 
 import org.axonframework.commandhandling.CommandExecutionException;
+import org.axonframework.queryhandling.QueryExecutionException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -26,6 +27,11 @@ public class OrdersServiceErrorHandler {
 
     @ExceptionHandler(value = CommandExecutionException.class)
     public ResponseEntity<Object> handleCommandExecutionExceptions(CommandExecutionException ex, WebRequest request) {
+        return ResponseEntity.internalServerError().body(new ErrorMessage(ex.getMessage()));
+    }
+
+    @ExceptionHandler(value = QueryExecutionException.class)
+    public ResponseEntity<Object> handleQueryExecutionExceptions(QueryExecutionException ex, WebRequest request) {
         return ResponseEntity.internalServerError().body(new ErrorMessage(ex.getMessage()));
     }
 }
