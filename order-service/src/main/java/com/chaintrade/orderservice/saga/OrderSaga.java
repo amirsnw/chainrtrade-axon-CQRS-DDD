@@ -47,7 +47,7 @@ public class OrderSaga {
     public void handle(ProductReservedEvent event) {
         log.info("ProductReservedEvent is called for orderId: {} and productId: {}", event.getOrderId(), event.getProductId());
         FetchUserPaymentDetailsQuery query = new FetchUserPaymentDetailsQuery(event.getOrderId());
-        UserEntity user = null;
+        UserEntity user;
         try {
             user = queryGateway.query(query, ResponseTypes.instanceOf(UserEntity.class)).join();
         } catch (Exception e) {
