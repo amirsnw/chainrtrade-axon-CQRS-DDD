@@ -10,7 +10,7 @@ import java.nio.file.Paths;
 @Component
 public class StartupLogger implements CommandLineRunner {
 
-    @Value("${spring.datasource.db-path}")
+    @Value("${spring.datasource.h2-path}")
     private String dbPath;
 
     @Override

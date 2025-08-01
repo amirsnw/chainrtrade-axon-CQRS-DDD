@@ -19,6 +19,11 @@ spring:
         connect-timeout: 60000
         response-timeout: 60000
       routes:
+        - id: product-service
+          predicates:
+            - Path=/api/products/**
+          uri: lb://product-service
+
         - id: order-service
           predicates:
             - Path=/api/orders/**

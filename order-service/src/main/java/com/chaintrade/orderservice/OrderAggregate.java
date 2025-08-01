@@ -36,7 +36,7 @@ public class OrderAggregate {
         OrderCreatedEvent event = new OrderCreatedEvent();
         BeanUtils.copyProperties(command, event);
         AggregateLifecycle.apply(event);
-        if (command.getItems().stream().anyMatch(item -> !StringUtils.hasLength(item.getProductId()))) {
+        if (command.getItems().stream().anyMatch(item -> !StringUtils.hasLength(String.valueOf(item.getProductId())))) {
             throw new IllegalArgumentException("Product id is required");
         }
     }

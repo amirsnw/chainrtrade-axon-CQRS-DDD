@@ -1,6 +1,7 @@
 package com.chaintrade.orderservice.command.rest;
 
 import com.chaintrade.orderservice.core.data.OrderItem;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
@@ -16,6 +17,7 @@ public class CreateOrderModel {
     private final String customerId;
 
     @NotEmpty
+    @Valid
     private final List<OrderItem> items;
 
     @Min(value = 1, message = "Price can not be lower than one.")

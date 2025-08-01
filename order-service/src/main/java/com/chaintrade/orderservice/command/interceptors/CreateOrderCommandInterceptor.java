@@ -15,6 +15,7 @@ import org.springframework.util.StringUtils;
 import javax.annotation.Nonnull;
 import java.time.ZonedDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.function.BiFunction;
 
 @Component
@@ -36,12 +37,12 @@ public class CreateOrderCommandInterceptor implements MessageDispatchInterceptor
                 if (!StringUtils.hasText(createOrderCommand.getOrderId())) {
                     throw new IllegalArgumentException("Order id is required");
                 }
-                OrderLookupEntity oldCanceledOrder = lookupRepository.findFirstByCustomerIdAndStatusOrderByDateCreatedDesc(
+                Optional<OrderLookupEntity> oldCanceledOrder = lookupRepository.findFirstByCustomerIdAndStatusOrderByDateCreatedDesc(
                         createOrderCommand.getCustomerId(),
                         OrderStatus.CANCELLED
                 );
-                if (oldCanceledOrder != null) {
-                    ZonedDateTime threshold = oldCanceledOrder.getDateCreated().plusMonths(1);
+                if (oldCanceledOrder.isPresent()) {
+                    ZonedDateTime threshold = oldCanceledOrder.get().getDateCreated().plusMonths(1);
                     if (ZonedDateTime.now().isBefore(threshold)) {
                         throw new IllegalStateException("You cannot create an order that has been cancelled within one last month");
                     }

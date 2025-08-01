@@ -2,7 +2,6 @@ package com.chaintrade.orderservice.query;
 
 import com.chaintrade.orderservice.core.data.OrderEntity;
 import com.chaintrade.orderservice.core.data.OrderRepository;
-import com.chaintrade.orderservice.core.data.OrderItem;
 import com.chaintrade.orderservice.query.rest.OrderQueryModel;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -33,7 +32,8 @@ public class OrdersQueryHandler {
                     BeanUtils.copyProperties(item, model);
                     try {
                         model.setItems(
-                                getObjectMapper().readValue(item.getItems(), new TypeReference<List<OrderItem>>() {})
+                                getObjectMapper().readValue(item.getItems(), new TypeReference<>() {
+                                })
                         );
                     } catch (JsonProcessingException e) {
                         throw new RuntimeException(e);

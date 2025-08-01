@@ -15,7 +15,7 @@ import java.time.ZonedDateTime;
 @Component
 @ProcessingGroup("order-group")
 @RequiredArgsConstructor
-public class OrderLookupOrdersHandler {
+public class OrderLookupHandler {
 
     private final OrderLookupRepository lookUpRepository;
 

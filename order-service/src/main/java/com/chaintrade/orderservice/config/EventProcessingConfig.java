@@ -6,7 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
-public class ListenerInvocationErrorHandler {
+public class EventProcessingConfig {
 
     @Autowired
     public void configure(EventProcessingConfigurer configurer) {
