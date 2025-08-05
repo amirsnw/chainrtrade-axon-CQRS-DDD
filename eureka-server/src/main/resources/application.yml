@@ -14,8 +14,9 @@ eureka:
     register-with-eureka: false
     fetch-registry: false
     service-url:
-      defaultZone: http://localhost:8761/eureka
+      defaultZone: http://admin:admin@localhost:8761/eureka
   instance:
     prefer-ip-address: true
   server:
     wait-time-in-ms-when-sync-empty: 0
+    enable-self-preservation: false
