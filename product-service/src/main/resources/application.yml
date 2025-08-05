@@ -44,9 +44,9 @@ axon:
 logging:
   level:
     org:
-      axonframework:
-        axonserver:
-          connector:
-            event:
-              axon:
-                AxonServerEventStore: debug
+      axonframework: DEBUG
+      springframework:
+        web: DEBUG
+    com:
+      fasterxml:
+        jackson: DEBUG

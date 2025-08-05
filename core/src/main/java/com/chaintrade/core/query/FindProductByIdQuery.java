@@ -1,4 +1,4 @@
-package productservice.query;
+package com.chaintrade.core.query;
 
 import lombok.Value;
 

@@ -2,6 +2,7 @@ package productservice.mapper;
 
 import com.chaintrade.core.commands.ReserveProductCommand;
 import com.chaintrade.core.events.ProductReservedEvent;
+import com.chaintrade.core.model.ProductRestModel;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.factory.Mappers;
@@ -10,7 +11,6 @@ import productservice.command.rest.CreateProductRestModel;
 import productservice.core.data.ProductEntity;
 import productservice.core.data.ProductLookupEntity;
 import productservice.core.events.ProductCreatedEvent;
-import productservice.query.rest.ProductRestModel;
 
 import java.util.UUID;
 

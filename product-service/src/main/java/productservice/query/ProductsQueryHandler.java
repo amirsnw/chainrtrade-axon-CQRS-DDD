@@ -1,12 +1,13 @@
 package productservice.query;
 
+import com.chaintrade.core.model.ProductRestModel;
+import com.chaintrade.core.query.FindProductByIdQuery;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.axonframework.queryhandling.QueryHandler;
 import org.springframework.stereotype.Component;
 import productservice.core.data.ProductRepository;
 import productservice.mapper.ProductMapper;
-import productservice.query.rest.ProductRestModel;
 
 import java.util.List;
 import java.util.UUID;

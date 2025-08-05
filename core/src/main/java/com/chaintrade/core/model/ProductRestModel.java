@@ -1,4 +1,4 @@
-package productservice.query.rest;
+package com.chaintrade.core.model;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
