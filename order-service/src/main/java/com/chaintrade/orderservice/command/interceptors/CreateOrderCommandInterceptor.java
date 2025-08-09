@@ -34,11 +34,11 @@ public class CreateOrderCommandInterceptor implements MessageDispatchInterceptor
             log.info("Intercepted command: " + command.getPayload().toString());
             if (CreateOrderCommand.class.equals(command.getPayloadType())) {
                 CreateOrderCommand createOrderCommand = (CreateOrderCommand) command.getPayload();
-                if (!StringUtils.hasText(createOrderCommand.getOrderId())) {
+                if (!StringUtils.hasText(createOrderCommand.orderId())) {
                     throw new IllegalArgumentException("Order id is required");
                 }
                 Optional<OrderLookupEntity> oldCanceledOrder = lookupRepository.findFirstByCustomerIdAndStatusOrderByDateCreatedDesc(
-                        createOrderCommand.getCustomerId(),
+                        createOrderCommand.customerId(),
                         OrderStatus.CANCELLED
                 );
                 if (oldCanceledOrder.isPresent()) {

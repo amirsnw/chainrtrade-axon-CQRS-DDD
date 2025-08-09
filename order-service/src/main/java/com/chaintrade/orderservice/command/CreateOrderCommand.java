@@ -1,21 +1,19 @@
 package com.chaintrade.orderservice.command;
 
 import com.chaintrade.orderservice.core.data.OrderItem;
-import lombok.AllArgsConstructor;
-import lombok.Data;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import org.axonframework.modelling.command.TargetAggregateIdentifier;
 
 import java.math.BigDecimal;
 import java.util.List;
 
-@Data
-@AllArgsConstructor
-public class CreateOrderCommand {
-    @TargetAggregateIdentifier
-    private String orderId;
-
-    private final String customerId;
-    private final List<OrderItem> items;
-    private final BigDecimal totalAmount;
-    private final String shippingAddress;
+public record CreateOrderCommand(@TargetAggregateIdentifier @JsonProperty("orderId") String orderId,
+                                 @JsonProperty("customerId") String customerId,
+                                 @JsonProperty("items") List<OrderItem> items,
+                                 @JsonProperty("totalAmount") BigDecimal totalAmount,
+                                 @JsonProperty("shippingAddress") String shippingAddress) {
+    @JsonCreator
+    public CreateOrderCommand {
+    }
 } 

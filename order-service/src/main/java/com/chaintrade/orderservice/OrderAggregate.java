@@ -36,7 +36,7 @@ public class OrderAggregate {
         OrderCreatedEvent event = new OrderCreatedEvent();
         BeanUtils.copyProperties(command, event);
         AggregateLifecycle.apply(event);
-        if (command.getItems().stream().anyMatch(item -> !StringUtils.hasLength(String.valueOf(item.getProductId())))) {
+        if (command.items().stream().anyMatch(item -> !StringUtils.hasLength(String.valueOf(item.getProductId())))) {
             throw new IllegalArgumentException("Product id is required");
         }
     }
@@ -47,8 +47,8 @@ public class OrderAggregate {
             throw new IllegalStateException("Order is already cancelled");
         }
         AggregateLifecycle.apply(new OrderCancelledEvent(
-                command.getOrderId(),
-                command.getReason()
+                command.orderId(),
+                command.reason()
         ));
     }
 

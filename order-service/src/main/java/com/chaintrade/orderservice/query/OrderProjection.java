@@ -54,7 +54,7 @@ public class OrderProjection {
 
     @EventHandler
     public void on(OrderCancelledEvent event) {
-        orderRepository.findById(event.getOrderId()).ifPresent(order -> {
+        orderRepository.findById(event.orderId()).ifPresent(order -> {
             order.setStatus(OrderStatus.CANCELLED);
             orderRepository.save(order);
         });

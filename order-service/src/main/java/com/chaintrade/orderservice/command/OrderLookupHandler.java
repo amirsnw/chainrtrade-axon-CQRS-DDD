@@ -31,7 +31,7 @@ public class OrderLookupHandler {
 
     @EventHandler
     public void on(OrderCancelledEvent event) {
-        lookUpRepository.findById(event.getOrderId()).ifPresent(item -> {
+        lookUpRepository.findById(event.orderId()).ifPresent(item -> {
             item.setStatus(OrderStatus.CANCELLED);
             lookUpRepository.save(item);
         });

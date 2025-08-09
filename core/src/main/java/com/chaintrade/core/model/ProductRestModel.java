@@ -1,22 +1,12 @@
 package com.chaintrade.core.model;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.math.BigDecimal;
 import java.util.UUID;
 
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
-public class ProductRestModel {
-
-    private UUID productId;
-    private String title;
-    private BigDecimal price;
-    private Integer quantity;
-
+public record ProductRestModel(@JsonProperty("productId") UUID productId,
+                               @JsonProperty("title") String title,
+                               @JsonProperty("price") BigDecimal price,
+                               @JsonProperty("quantity") Integer quantity) {
 }

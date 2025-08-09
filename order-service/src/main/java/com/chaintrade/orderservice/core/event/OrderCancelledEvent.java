@@ -1,11 +1,10 @@
 package com.chaintrade.orderservice.core.event;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
-@Data
-@AllArgsConstructor
-public class OrderCancelledEvent {
-    private String orderId;
-    private String reason;
+public record OrderCancelledEvent(
+        @JsonProperty("orderId") String orderId,
+        @JsonProperty("reason") String reason
+) {
+
 } 

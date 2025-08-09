@@ -28,15 +28,17 @@ public class OrderSaga {
     @SagaEventHandler(associationProperty = "orderId")
     public void handle(OrderCreatedEvent event) {
         event.getItems().forEach(item -> {
-            ReserveProductCommand command = ReserveProductCommand.builder()
-                    .orderId(event.getOrderId())
-                    .productId(item.getProductId())
-                    .quantity(item.getQuantity())
-                    .userId(event.getCustomerId())
-                    .build();
-            log.info("OrderCreatedEvent handled for orderId: {} and productId: {}", command.getOrderId(), item.getProductId());
+            ReserveProductCommand command = new ReserveProductCommand(
+                    item.getProductId(),
+                    item.getQuantity(),
+                    event.getOrderId(),
+                    event.getCustomerId()
+            );
+            log.info("OrderCreatedEvent handled for orderId: {} and productId: {}", command.orderId(), item.getProductId());
             commandGateway.send(command, (commandMessage, commandResultMessage) -> {
                 if (commandResultMessage.isExceptional()) {
+                    Throwable exception = commandResultMessage.exceptionResult();
+                    log.warn("Reservation failed: {}", exception.getMessage());
                     // Start a compensating transaction
                 }
             });
@@ -45,20 +47,21 @@ public class OrderSaga {
 
     @SagaEventHandler(associationProperty = "orderId")
     public void handle(ProductReservedEvent event) {
-        log.info("ProductReservedEvent is called for orderId: {} and productId: {}", event.getOrderId(), event.getProductId());
-        FetchUserPaymentDetailsQuery query = new FetchUserPaymentDetailsQuery(event.getOrderId());
-        UserEntity user;
-        try {
-            user = queryGateway.query(query, ResponseTypes.instanceOf(UserEntity.class)).join();
-        } catch (Exception e) {
-            log.info("message: {}", e.getMessage());
-            // Start compensating transaction
-            return;
-        }
-        if (user == null) {
-            // Start compensating transaction
-            return;
-        }
-        log.info("successfully fetched user payment details for user: {}", user.getFirstName());
+        log.info("ProductReservedEvent is called for orderId: {} and productId: {}", event.orderId(), event.productId());
+        FetchUserPaymentDetailsQuery query = new FetchUserPaymentDetailsQuery(event.userId());
+        queryGateway.query(query, ResponseTypes.instanceOf(UserEntity.class)).thenAccept(user -> {
+                    if (user == null) {
+                        log.warn("No user found during user payment fetch");
+                        // Start compensating transaction
+                        return;
+                    }
+                    log.info("successfully fetched user payment details for user: {}", user.firstName());
+                    // Possibly continue the saga here
+                })
+                .exceptionally(ex -> {
+                    log.warn("Query failed: {}", ex.getMessage());
+                    // Start compensating transaction
+                    return null;
+                });
     }
 }

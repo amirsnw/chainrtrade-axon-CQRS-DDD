@@ -1,17 +1,11 @@
 package com.chaintrade.core.events;
 
-import lombok.Builder;
-import lombok.Data;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.UUID;
 
-@Data
-@Builder
-public class ProductReservedEvent {
-
-    private final UUID productId;
-    private final int quantity;
-    private final String orderId;
-    private final String userId;
-
+public record ProductReservedEvent(@JsonProperty("productId") UUID productId,
+                                   @JsonProperty("quantity") int quantity,
+                                   @JsonProperty("orderId") String orderId,
+                                   @JsonProperty("userId") String userId) {
 }

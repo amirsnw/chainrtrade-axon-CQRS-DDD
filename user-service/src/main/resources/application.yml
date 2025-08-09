@@ -16,3 +16,4 @@ eureka:
 axon:
   serializer:
     events: jackson
+    messages: jackson

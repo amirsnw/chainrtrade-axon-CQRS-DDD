@@ -1,14 +1,9 @@
 package com.chaintrade.core.model;
 
-import lombok.Builder;
-import lombok.Data;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
-@Data
-@Builder
-public class UserEntity {
-
-    private final String firstName;
-    private final String lastName;
-    private final String userId;
-    private final PaymentDetails paymentDetails;
+public record UserEntity(@JsonProperty("firstName") String firstName,
+                         @JsonProperty("lastName") String lastName,
+                         @JsonProperty("userId") String userId,
+                         @JsonProperty("paymentDetails") PaymentDetails paymentDetails) {
 }

@@ -1,7 +1,7 @@
 package com.chaintrade.orderservice.command.rest;
 
 import com.chaintrade.orderservice.command.CancelOrderCommand;
-import com.chaintrade.orderservice.command.CreateOrderCommand;
+import com.chaintrade.orderservice.service.OrderService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.axonframework.commandhandling.gateway.CommandGateway;
@@ -10,7 +10,6 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.net.URI;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 @RestController
@@ -18,24 +17,18 @@ import java.util.concurrent.CompletableFuture;
 @RequiredArgsConstructor
 public class OrdersCommandController {
     private final CommandGateway commandGateway;
+    private final OrderService orderService;
 
     @PostMapping
-    public ResponseEntity<CreateOrderCommand> createOrder(@RequestBody @Valid CreateOrderModel dto) {
-        CreateOrderCommand command = new CreateOrderCommand(
-                UUID.randomUUID().toString(),
-                dto.getCustomerId(),
-                dto.getItems(),
-                dto.getTotalAmount(),
-                dto.getShippingAddress()
-        );
-        String id = commandGateway.sendAndWait(command);
-        URI location = ServletUriComponentsBuilder
-                .fromCurrentRequest()
-                .pathSegment("{id}")
-                .buildAndExpand(id)
-                .toUri();
-        return ResponseEntity.created(location)
-                .body(command);
+    public CompletableFuture<ResponseEntity<Void>> createOrder(@RequestBody @Valid CreateOrderModel dto) {
+        return orderService.placeOrder(dto).thenApply(uuid -> {
+            URI location = ServletUriComponentsBuilder
+                    .fromCurrentRequest()
+                    .pathSegment("{id}")
+                    .buildAndExpand(uuid)
+                    .toUri();
+            return ResponseEntity.created(location).build();
+        });
     }
 
     @PostMapping("/{orderId}/cancel")

@@ -1,15 +1,11 @@
 package com.chaintrade.core.model;
 
-import lombok.Builder;
-import lombok.Data;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
-@Data
-@Builder
-public class PaymentDetails {
+public record PaymentDetails(@JsonProperty("name") String name,
+                             @JsonProperty("cardNumber") String cardNumber,
+                             @JsonProperty("validUntilMonth") Integer validUntilMonth,
+                             @JsonProperty("validUntilYear") Integer validUntilYear,
+                             @JsonProperty("cvv") String cvv) {
 
-    private final String name;
-    private final String cardNumber;
-    private final int validUntilMonth;
-    private final int validUntilYear;
-    private final String cvv;
 }

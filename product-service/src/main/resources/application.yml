@@ -35,11 +35,17 @@ eureka:
 
 axon:
   serializer:
+    general: jackson
     events: jackson
+    messages: jackson
   eventhandling:
     processors:
       product-group:
         mode: subscribing
+  servers:
+    default:
+      host: localhost
+      port: 8025
 
 logging:
   level:

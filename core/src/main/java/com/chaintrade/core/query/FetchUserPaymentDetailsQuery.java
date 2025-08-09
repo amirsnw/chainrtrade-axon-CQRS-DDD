@@ -1,9 +1,6 @@
 package com.chaintrade.core.query;
 
-import lombok.Data;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
-@Data
-public class FetchUserPaymentDetailsQuery {
-
-    private final String userId;
+public record FetchUserPaymentDetailsQuery(@JsonProperty("userId") String userId) {
 }

@@ -1,11 +1,8 @@
 package com.chaintrade.core.query;
 
-import lombok.Value;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.UUID;
 
-@Value
-public class FindProductByIdQuery {
-
-    UUID productId;
+public record FindProductByIdQuery(@JsonProperty("productId") UUID productId) {
 }

@@ -1,14 +1,10 @@
 package com.chaintrade.orderservice.command;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import org.axonframework.modelling.command.TargetAggregateIdentifier;
 
-@Data
-@AllArgsConstructor
-public class CancelOrderCommand {
-    @TargetAggregateIdentifier
-    private String orderId;
-
-    private String reason;
+public record CancelOrderCommand(
+        @TargetAggregateIdentifier @JsonProperty("orderId") String orderId,
+        @JsonProperty("reason") String reason
+) {
 } 
