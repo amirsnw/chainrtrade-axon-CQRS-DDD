@@ -18,7 +18,7 @@ import org.springframework.util.StringUtils;
 import java.math.BigDecimal;
 import java.util.List;
 
-@Aggregate
+@Aggregate(type = "order")
 @NoArgsConstructor
 public class OrderAggregate {
 
