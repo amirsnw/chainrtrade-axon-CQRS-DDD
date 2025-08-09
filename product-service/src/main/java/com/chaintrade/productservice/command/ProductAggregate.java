@@ -15,7 +15,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import java.math.BigDecimal;
 import java.util.UUID;
 
-@Aggregate
+@Aggregate(type = "product")
 public class ProductAggregate {
 
     @AggregateIdentifier
@@ -42,16 +42,6 @@ public class ProductAggregate {
 
         if (productCreatedEvent.getTitle().contains("throw IllegalStateException"))
             throw new IllegalStateException("An error took place in CreateProductCommand @CommandHandler method");
-    }
-
-    private static void validateModification(BigDecimal createProductCommand, String createProductCommand1) {
-        if (createProductCommand.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new IllegalArgumentException("Price can not be less or equal to zero");
-        }
-
-        if (createProductCommand1 == null || createProductCommand1.isEmpty()) {
-            throw new IllegalArgumentException("Title can not be empty");
-        }
     }
 
     @CommandHandler
@@ -88,5 +78,15 @@ public class ProductAggregate {
     @EventSourcingHandler
     public void on(ProductReservedEvent productReservedEvent) {
         this.quantity -= productReservedEvent.quantity();
+    }
+
+    private static void validateModification(BigDecimal createProductCommand, String createProductCommand1) {
+        if (createProductCommand.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Price can not be less or equal to zero");
+        }
+
+        if (createProductCommand1 == null || createProductCommand1.isEmpty()) {
+            throw new IllegalArgumentException("Title can not be empty");
+        }
     }
 }
