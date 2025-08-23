@@ -17,5 +17,4 @@ public class ErrorMessage {
     private LocalDateTime timestamp = LocalDateTime.now();
 
     private String message;
-
 }

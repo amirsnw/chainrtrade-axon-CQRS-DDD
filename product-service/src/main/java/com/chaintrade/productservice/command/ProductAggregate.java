@@ -1,6 +1,8 @@
 package com.chaintrade.productservice.command;
 
+import com.chaintrade.core.commands.ReleaseProductCommand;
 import com.chaintrade.core.commands.ReserveProductCommand;
+import com.chaintrade.core.events.ProductReleaseReservedEvent;
 import com.chaintrade.core.events.ProductReservedEvent;
 import com.chaintrade.productservice.core.events.ProductCreatedEvent;
 import com.chaintrade.productservice.core.events.ProductUpdatedEvent;
@@ -13,6 +15,8 @@ import org.axonframework.spring.stereotype.Aggregate;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.math.BigDecimal;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 
 @Aggregate(type = "product")
@@ -23,6 +27,7 @@ public class ProductAggregate {
     private String title;
     private BigDecimal price;
     private Integer quantity;
+    private Map<String, Integer> holds = new HashMap<>();
 
     private transient ProductMapper mapper;
 
@@ -44,13 +49,6 @@ public class ProductAggregate {
             throw new IllegalStateException("An error took place in CreateProductCommand @CommandHandler method");
     }
 
-    @CommandHandler
-    public void handle(UpdateProductCommand updateProductCommand) {
-        validateModification(updateProductCommand.price(), updateProductCommand.title());
-        ProductUpdatedEvent productUpdatedEvent = ProductMapper.INSTANCE.toUpdateEvent(updateProductCommand);
-        AggregateLifecycle.apply(productUpdatedEvent);
-    }
-
     @EventSourcingHandler
     public void on(ProductCreatedEvent productCreatedEvent) {
         this.productId = productCreatedEvent.getProductId();
@@ -60,12 +58,10 @@ public class ProductAggregate {
     }
 
     @CommandHandler
-    public void handle(ReserveProductCommand reserveProductCommand) {
-        if (quantity < reserveProductCommand.quantity()) {
-            throw new IllegalArgumentException("Insufficient number of items in stock");
-        }
-        ProductReservedEvent productReservedEvent = mapper.toEvent(reserveProductCommand);
-        AggregateLifecycle.apply(productReservedEvent);
+    public void handle(UpdateProductCommand updateProductCommand) {
+        validateModification(updateProductCommand.price(), updateProductCommand.title());
+        ProductUpdatedEvent productUpdatedEvent = ProductMapper.INSTANCE.toUpdateEvent(updateProductCommand);
+        AggregateLifecycle.apply(productUpdatedEvent);
     }
 
     @EventSourcingHandler
@@ -75,9 +71,37 @@ public class ProductAggregate {
         this.quantity = productUpdatedEvent.getQuantity();
     }
 
+    @CommandHandler
+    public void handle(ReserveProductCommand command) {
+        Integer hold = holds.get(command.orderId());
+        if (hold == null) {
+            if (this.quantity < command.quantity()) {
+                throw new IllegalArgumentException("Insufficient number of items in stock");
+            }
+            ProductReservedEvent productReservedEvent = mapper.toEvent(command);
+            AggregateLifecycle.apply(productReservedEvent);
+        }
+    }
+
     @EventSourcingHandler
     public void on(ProductReservedEvent productReservedEvent) {
         this.quantity -= productReservedEvent.quantity();
+        holds.put(productReservedEvent.orderId(), productReservedEvent.quantity());
+    }
+
+    @CommandHandler
+    public void handle(ReleaseProductCommand command) {
+        Integer hold = holds.get(command.orderId());
+        if (hold != null) {
+            ProductReleaseReservedEvent event = mapper.toEvent(command);
+            AggregateLifecycle.apply(event);
+        }
+    }
+
+    @EventSourcingHandler
+    public void on(ProductReleaseReservedEvent event) {
+        this.quantity += holds.get(event.orderId());
+        holds.remove(event.orderId());
     }
 
     private static void validateModification(BigDecimal createProductCommand, String createProductCommand1) {

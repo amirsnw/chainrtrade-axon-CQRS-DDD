@@ -31,7 +31,9 @@ public class ProductEntity implements Serializable {
 
     @Column(unique = true)
     private String title;
+
     private BigDecimal price;
+
     private Integer quantity;
 
 }
