@@ -20,8 +20,8 @@
         <module>core</module>
         <module>product-service</module>
         <module>order-service</module>
-        <!--<module>shipment-service</module>
         <module>payment-service</module>
+        <!--<module>shipment-service</module>
         <module>blockchain-integration</module>-->
         <module>api-gateway</module>
         <module>eureka-server</module>

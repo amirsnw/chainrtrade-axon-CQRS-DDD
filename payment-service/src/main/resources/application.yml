@@ -1,0 +1,45 @@
+server:
+  port: 8084
+  error:
+    include-message: always
+    include-binding-errors: always
+
+spring:
+  application:
+    name: payment-service
+  datasource:
+    url: jdbc:h2:file:${spring.datasource.h2-path}/payments;AUTO_SERVER=true
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+    h2-path: ~/Documents/chaintrade/h2
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+      settings:
+        web-allow-others: true
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://admin:admin@localhost:8761/eureka/
+
+axon:
+  serializer:
+    general: jackson
+    events: jackson
+    messages: jackson
+  eventhandling:
+    processors:
+      payment-group:
+        mode: subscribing
+  servers:
+    default:
+      host: localhost
+      port: 8025
