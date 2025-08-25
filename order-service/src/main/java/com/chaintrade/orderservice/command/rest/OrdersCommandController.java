@@ -21,10 +21,9 @@ public class OrdersCommandController {
 
     @PostMapping
     public CompletableFuture<ResponseEntity<Void>> createOrder(@RequestBody @Valid CreateOrderModel dto) {
+        ServletUriComponentsBuilder uriBuilder = ServletUriComponentsBuilder.fromCurrentRequest();
         return orderService.placeOrder(dto).thenApply(uuid -> {
-            URI location = ServletUriComponentsBuilder
-                    .fromCurrentRequest()
-                    .pathSegment("{id}")
+            URI location = uriBuilder.pathSegment("{id}")
                     .buildAndExpand(uuid)
                     .toUri();
             return ResponseEntity.created(location).build();

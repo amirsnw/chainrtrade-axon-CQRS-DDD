@@ -1,9 +1,7 @@
 package com.chaintrade.orderservice.command.interceptors;
 
 import com.chaintrade.orderservice.command.CreateOrderCommand;
-import com.chaintrade.orderservice.core.data.OrderLookupEntity;
 import com.chaintrade.orderservice.core.data.OrderLookupRepository;
-import com.chaintrade.orderservice.core.data.OrderStatus;
 import jakarta.inject.Inject;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -13,9 +11,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
 import javax.annotation.Nonnull;
-import java.time.ZonedDateTime;
 import java.util.List;
-import java.util.Optional;
 import java.util.function.BiFunction;
 
 @Component
@@ -37,7 +33,7 @@ public class CreateOrderCommandInterceptor implements MessageDispatchInterceptor
                 if (!StringUtils.hasText(createOrderCommand.orderId())) {
                     throw new IllegalArgumentException("Order id is required");
                 }
-                Optional<OrderLookupEntity> oldCanceledOrder = lookupRepository.findFirstByCustomerIdAndStatusOrderByDateCreatedDesc(
+                /*Optional<OrderLookupEntity> oldCanceledOrder = lookupRepository.findFirstByCustomerIdAndStatusOrderByDateCreatedDesc(
                         createOrderCommand.customerId(),
                         OrderStatus.CANCELLED
                 );
@@ -46,7 +42,7 @@ public class CreateOrderCommandInterceptor implements MessageDispatchInterceptor
                     if (ZonedDateTime.now().isBefore(threshold)) {
                         throw new IllegalStateException("You cannot create an order that has been cancelled within one last month");
                     }
-                }
+                }*/
             }
             return command;
         };

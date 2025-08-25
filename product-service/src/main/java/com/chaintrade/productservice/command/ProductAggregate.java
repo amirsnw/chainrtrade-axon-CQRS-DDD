@@ -1,8 +1,10 @@
 package com.chaintrade.productservice.command;
 
+import com.chaintrade.core.commands.ConfirmProductReservationCommand;
 import com.chaintrade.core.commands.ReleaseProductCommand;
 import com.chaintrade.core.commands.ReserveProductCommand;
-import com.chaintrade.core.events.ProductReleaseReservedEvent;
+import com.chaintrade.core.events.ProductReservationConfirmedEvent;
+import com.chaintrade.core.events.ProductReservationReleasedEvent;
 import com.chaintrade.core.events.ProductReservedEvent;
 import com.chaintrade.productservice.core.events.ProductCreatedEvent;
 import com.chaintrade.productservice.core.events.ProductUpdatedEvent;
@@ -15,8 +17,10 @@ import org.axonframework.spring.stereotype.Aggregate;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 @Aggregate(type = "product")
@@ -27,9 +31,64 @@ public class ProductAggregate {
     private String title;
     private BigDecimal price;
     private Integer quantity;
-    private Map<String, Integer> holds = new HashMap<>();
+    private Map<String, Hold> holds = new HashMap<>();
+    private Map<String, UUID> lastClosedWindow = new HashMap<>();
 
     private transient ProductMapper mapper;
+
+    @CommandHandler
+    public void handle(ReserveProductCommand command) {
+        expireIfPast(command.orderId());
+
+        // Reject if a newer "window" was already closed for this order
+        // This only handle timout/released retry reservations that needs to be fired from
+        // reservation's compensating flow (TODO: not implemented yet in OrderSaga)
+        UUID closed = lastClosedWindow.get(command.orderId());
+        if (closed != null && !closed.equals(command.reservationWindow())) {
+            AggregateLifecycle.apply(
+                    new ProductReservationReleasedEvent(
+                            productId,
+                            command.orderId(),
+                            0,
+                            "window_closed"
+                    )
+            );
+            return;
+        }
+
+        // Idempotent re-try within same window
+        Hold hold = holds.get(command.orderId());
+        if (hold != null && hold.window.equals(command.reservationWindow())) {
+            return; // already reserved for this window
+        }
+
+        // TTL check (use timestamp provided by caller)
+        if (Instant.now().isAfter(command.expiresAt())) {
+            AggregateLifecycle.apply(
+                    new ProductReservationReleasedEvent(
+                            productId,
+                            command.orderId(),
+                            0,
+                            "expired_before_commit"
+                    )
+            );
+            return;
+        }
+
+        if (this.quantity < command.quantity()) {
+            AggregateLifecycle.apply(
+                    new ProductReservationReleasedEvent(
+                            productId,
+                            command.orderId(),
+                            0,
+                            "insufficient"
+                    )
+            );
+            return;
+        }
+        ProductReservedEvent productReservedEvent = mapper.toEvent(command);
+        AggregateLifecycle.apply(productReservedEvent);
+    }
 
     @Autowired
     public void setMapper(ProductMapper mapper) {
@@ -71,37 +130,83 @@ public class ProductAggregate {
         this.quantity = productUpdatedEvent.getQuantity();
     }
 
+    @EventSourcingHandler
+    public void on(ProductReservedEvent event) {
+        this.quantity -= event.quantity();
+        holds.put(event.orderId(),
+                new Hold(
+                        event.quantity(),
+                        event.expiresAt(),
+                        event.reservationWindow()
+                )
+        );
+    }
+
     @CommandHandler
-    public void handle(ReserveProductCommand command) {
-        Integer hold = holds.get(command.orderId());
-        if (hold == null) {
-            if (this.quantity < command.quantity()) {
-                throw new IllegalArgumentException("Insufficient number of items in stock");
-            }
-            ProductReservedEvent productReservedEvent = mapper.toEvent(command);
-            AggregateLifecycle.apply(productReservedEvent);
+    public void handle(ConfirmProductReservationCommand command) {
+        expireIfPast(command.orderId());
+
+        Hold hold = holds.remove(command.orderId());
+        if (!hold.quantity.equals(command.quantity())) {
+            AggregateLifecycle.apply(
+                    new ProductReservationReleasedEvent(
+                            command.productId(),
+                            command.orderId(),
+                            command.quantity(),
+                            "quantity confirmation mismatch"
+                    )
+            );
+            return;
         }
+        ProductReservationConfirmedEvent event = mapper.toEvent(command);
+        AggregateLifecycle.apply(event);
     }
 
     @EventSourcingHandler
-    public void on(ProductReservedEvent productReservedEvent) {
-        this.quantity -= productReservedEvent.quantity();
-        holds.put(productReservedEvent.orderId(), productReservedEvent.quantity());
+    public void on(ProductReservationConfirmedEvent event) {
+        holds.remove(event.orderId());
+        lastClosedWindow.remove(event.orderId());
     }
 
     @CommandHandler
     public void handle(ReleaseProductCommand command) {
-        Integer hold = holds.get(command.orderId());
-        if (hold != null) {
-            ProductReleaseReservedEvent event = mapper.toEvent(command);
-            AggregateLifecycle.apply(event);
-        }
+        int qty = Optional.ofNullable(holds.get(command.orderId()))
+                .map(Hold::quantity)
+                .orElse(0);
+
+        AggregateLifecycle.apply(
+                new ProductReservationReleasedEvent(
+                        command.productId(),
+                        command.orderId(),
+                        qty,
+                        command.reason()
+                )
+        );
     }
 
     @EventSourcingHandler
-    public void on(ProductReleaseReservedEvent event) {
-        this.quantity += holds.get(event.orderId());
-        holds.remove(event.orderId());
+    public void on(ProductReservationReleasedEvent event) {
+        this.quantity += event.quantity();
+        Hold hold = holds.remove(event.orderId());
+        lastClosedWindow.put(event.orderId(),
+                Optional.ofNullable(hold)
+                        .map(h -> h.window)
+                        .orElse(UUID.randomUUID())
+        );
+    }
+
+    private void expireIfPast(String orderId) {
+        Hold hold = holds.get(orderId);
+        if (hold != null && Instant.now().isAfter(hold.expiresAt())) {
+            AggregateLifecycle.apply(
+                    new ProductReservationReleasedEvent(
+                            productId,
+                            orderId,
+                            hold.quantity(),
+                            "expired"
+                    )
+            );
+        }
     }
 
     private static void validateModification(BigDecimal createProductCommand, String createProductCommand1) {
@@ -112,5 +217,8 @@ public class ProductAggregate {
         if (createProductCommand1 == null || createProductCommand1.isEmpty()) {
             throw new IllegalArgumentException("Title can not be empty");
         }
+    }
+
+    record Hold(Integer quantity, Instant expiresAt, UUID window) {
     }
 }

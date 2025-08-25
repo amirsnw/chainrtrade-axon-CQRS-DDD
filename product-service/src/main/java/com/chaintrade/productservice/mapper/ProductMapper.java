@@ -1,8 +1,10 @@
 package com.chaintrade.productservice.mapper;
 
+import com.chaintrade.core.commands.ConfirmProductReservationCommand;
 import com.chaintrade.core.commands.ReleaseProductCommand;
 import com.chaintrade.core.commands.ReserveProductCommand;
-import com.chaintrade.core.events.ProductReleaseReservedEvent;
+import com.chaintrade.core.events.ProductReservationConfirmedEvent;
+import com.chaintrade.core.events.ProductReservationReleasedEvent;
 import com.chaintrade.core.events.ProductReservedEvent;
 import com.chaintrade.core.model.ProductRestModel;
 import com.chaintrade.productservice.command.CreateProductCommand;
@@ -45,7 +47,9 @@ public interface ProductMapper {
 
     ProductReservedEvent toEvent(ReserveProductCommand command);
 
-    ProductReleaseReservedEvent toEvent(ReleaseProductCommand command);
+    ProductReservationReleasedEvent toEvent(ReleaseProductCommand command);
+
+    ProductReservationConfirmedEvent toEvent(ConfirmProductReservationCommand command);
 
     // ProductReservationCancelledEvent toEvent(CancelProductReservationCommand command);
 

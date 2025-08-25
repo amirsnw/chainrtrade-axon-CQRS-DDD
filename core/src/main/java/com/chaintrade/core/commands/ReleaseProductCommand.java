@@ -6,5 +6,6 @@ import org.axonframework.modelling.command.TargetAggregateIdentifier;
 import java.util.UUID;
 
 public record ReleaseProductCommand(@TargetAggregateIdentifier @JsonProperty("productId") UUID productId,
-                                    @JsonProperty("orderId") String orderId) {
+                                    @JsonProperty("orderId") String orderId,
+                                    @JsonProperty("reason") String reason) {
 }

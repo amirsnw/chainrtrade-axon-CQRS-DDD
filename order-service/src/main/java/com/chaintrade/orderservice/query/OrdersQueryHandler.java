@@ -24,22 +24,30 @@ public class OrdersQueryHandler {
     private final ObjectMapper objectMapper;
 
     @QueryHandler
-    public List<OrderQueryModel> findProducts(FindOrdersQuery query) {
+    public List<OrderQueryModel> findOrders(FindOrdersQuery query) {
         List<OrderEntity> orders = orderRepository.findAll();
         return orders.stream()
-                .map(item -> {
-                    OrderQueryModel model = new OrderQueryModel();
-                    BeanUtils.copyProperties(item, model);
-                    try {
-                        model.setItems(
-                                getObjectMapper().readValue(item.getItems(), new TypeReference<>() {
-                                })
-                        );
-                    } catch (JsonProcessingException e) {
-                        throw new RuntimeException(e);
-                    }
-                    return model;
-                }).toList();
+                .map(this::mapToModel).toList();
     }
 
+    @QueryHandler
+    public OrderQueryModel findOneOrder(FindOneOrdersQuery query) {
+        return orderRepository.findById(query.getOrderId())
+                .map(this::mapToModel)
+                .orElse(null);
+    }
+
+    private OrderQueryModel mapToModel(OrderEntity item) {
+        OrderQueryModel model = new OrderQueryModel();
+        BeanUtils.copyProperties(item, model);
+        try {
+            model.setItems(
+                    getObjectMapper().readValue(item.getItems(), new TypeReference<>() {
+                    })
+            );
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException(e);
+        }
+        return model;
+    }
 }

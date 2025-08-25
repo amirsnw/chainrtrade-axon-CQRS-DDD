@@ -50,6 +50,9 @@ public class OrderService {
                 total.set(total.get().add(item.price().multiply(BigDecimal.valueOf(dtoItem.getQuantity()))));
                 dtoItem.setUnitPrice(item.price());
             });
+            /*BigDecimal total = itemList.stream()
+                    .map(p -> p.price().multiply(BigDecimal.valueOf(mappedItems.get(indexOf(p)).getQuantity())))
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);*/
             CreateOrderCommand command = new CreateOrderCommand(
                     UUID.randomUUID().toString(),
                     dto.getCustomerId(),
@@ -57,7 +60,7 @@ public class OrderService {
                     total.get(),
                     dto.getShippingAddress()
             );
-            return commandGateway.sendAndWait(command);
+            return commandGateway.send(command);
         });
     }
 }
