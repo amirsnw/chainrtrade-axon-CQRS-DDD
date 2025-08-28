@@ -22,6 +22,8 @@ public class PaymentEntity implements Serializable {
 
     private String customerId;
 
+    private String cardNumber;
+
     private BigDecimal amount;
 
     private String currency;

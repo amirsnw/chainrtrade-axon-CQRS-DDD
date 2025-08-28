@@ -168,6 +168,7 @@ public class OrderSaga {
                     paymentId,
                     orderId,
                     user.userId(),
+                    user.paymentDetails().cardNumber(),
                     this.totalAmount,
                     "Dollar",
                     "Credit Card"

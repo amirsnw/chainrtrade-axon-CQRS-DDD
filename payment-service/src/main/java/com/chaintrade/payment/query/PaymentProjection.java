@@ -22,6 +22,7 @@ public class PaymentProjection {
                 event.paymentId(),
                 event.orderId(),
                 event.customerId(),
+                event.cardNumber(),
                 event.amount(),
                 event.currency(),
                 event.paymentMethod(),

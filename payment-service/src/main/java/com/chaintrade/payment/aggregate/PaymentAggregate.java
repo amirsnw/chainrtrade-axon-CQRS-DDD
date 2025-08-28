@@ -25,6 +25,7 @@ public class PaymentAggregate {
 
     private String orderId;
     private String customerId;
+    private String cardNumber;
     private BigDecimal amount;
     private String currency;
     private String paymentMethod;
@@ -33,12 +34,26 @@ public class PaymentAggregate {
 
     @CommandHandler
     public PaymentAggregate(InitiatePaymentCommand command) {
+
+        if (command.cardNumber() == null) {
+            throw new IllegalArgumentException("Missing cardNumber");
+        }
+
+        if (command.orderId() == null) {
+            throw new IllegalArgumentException("Missing orderId");
+        }
+
+        if (command.paymentId() == null) {
+            throw new IllegalArgumentException("Missing paymentId");
+        }
+
         // Simulate payment processing
         if (Math.random() > 0.1) { // 90% success rate
             AggregateLifecycle.apply(new PaymentSucceededEvent(
                     command.paymentId(),
                     command.orderId(),
                     command.customerId(),
+                    command.cardNumber(),
                     command.amount(),
                     command.currency(),
                     command.paymentMethod(),
@@ -69,6 +84,7 @@ public class PaymentAggregate {
         this.paymentId = event.paymentId();
         this.orderId = event.orderId();
         this.customerId = event.customerId();
+        this.cardNumber = event.cardNumber();
         this.amount = event.amount();
         this.currency = event.currency();
         this.paymentMethod = event.paymentMethod();
