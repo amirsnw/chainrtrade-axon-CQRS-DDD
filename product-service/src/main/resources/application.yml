@@ -47,12 +47,12 @@ axon:
       host: localhost
       port: 8025
 
-logging:
-  level:
-    org:
-      axonframework: DEBUG
-      springframework:
-        web: DEBUG
-    com:
-      fasterxml:
-        jackson: DEBUG
+#logging:
+#  level:
+#    org:
+#      axonframework: DEBUG
+#      springframework:
+#        web: DEBUG
+#    com:
+#      fasterxml:
+#        jackson: DEBUG

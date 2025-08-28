@@ -143,10 +143,13 @@ public class ProductAggregate {
     }
 
     @CommandHandler
-    public void handle(ConfirmProductReservationCommand command) {
+    public UUID handle(ConfirmProductReservationCommand command) {
         expireIfPast(command.orderId());
 
-        Hold hold = holds.remove(command.orderId());
+        Hold hold = holds.get(command.orderId());
+        if (hold == null) {
+            return null;
+        }
         if (!hold.quantity.equals(command.quantity())) {
             AggregateLifecycle.apply(
                     new ProductReservationReleasedEvent(
@@ -156,10 +159,11 @@ public class ProductAggregate {
                             "quantity confirmation mismatch"
                     )
             );
-            return;
+            return null;
         }
         ProductReservationConfirmedEvent event = mapper.toEvent(command);
         AggregateLifecycle.apply(event);
+        return command.productId();
     }
 
     @EventSourcingHandler
@@ -197,12 +201,12 @@ public class ProductAggregate {
 
     private void expireIfPast(String orderId) {
         Hold hold = holds.get(orderId);
-        if (hold != null && Instant.now().isAfter(hold.expiresAt())) {
+        if (hold != null && Instant.now().isAfter(hold.expiresAt)) {
             AggregateLifecycle.apply(
                     new ProductReservationReleasedEvent(
                             productId,
                             orderId,
-                            hold.quantity(),
+                            hold.quantity,
                             "expired"
                     )
             );

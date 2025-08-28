@@ -1,14 +1,13 @@
 package com.chaintrade.orderservice.saga;
 
+import com.chaintrade.core.commands.ConfirmProductReservationCommand;
 import com.chaintrade.core.commands.InitiatePaymentCommand;
 import com.chaintrade.core.commands.ReleaseProductCommand;
 import com.chaintrade.core.commands.ReserveProductCommand;
-import com.chaintrade.core.events.PaymentFailedEvent;
-import com.chaintrade.core.events.PaymentSucceededEvent;
-import com.chaintrade.core.events.ProductReservationReleasedEvent;
-import com.chaintrade.core.events.ProductReservedEvent;
+import com.chaintrade.core.events.*;
 import com.chaintrade.core.model.UserEntity;
 import com.chaintrade.core.query.FetchUserPaymentDetailsQuery;
+import com.chaintrade.orderservice.command.ApproveOrderCommand;
 import com.chaintrade.orderservice.command.CancelOrderCommand;
 import com.chaintrade.orderservice.core.event.OrderCreatedEvent;
 import lombok.AccessLevel;
@@ -20,8 +19,11 @@ import org.axonframework.commandhandling.gateway.CommandGateway;
 import org.axonframework.config.ProcessingGroup;
 import org.axonframework.deadline.DeadlineManager;
 import org.axonframework.deadline.annotation.DeadlineHandler;
+import org.axonframework.eventhandling.EventBus;
+import org.axonframework.eventhandling.GenericEventMessage;
 import org.axonframework.messaging.responsetypes.ResponseTypes;
 import org.axonframework.messaging.unitofwork.CurrentUnitOfWork;
+import org.axonframework.messaging.unitofwork.UnitOfWork;
 import org.axonframework.modelling.saga.SagaEventHandler;
 import org.axonframework.modelling.saga.SagaLifecycle;
 import org.axonframework.modelling.saga.StartSaga;
@@ -33,7 +35,8 @@ import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.ZonedDateTime;
 import java.util.*;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 
 @Saga
 @Slf4j
@@ -53,18 +56,24 @@ public class OrderSaga {
 
     @Autowired
     @Getter(AccessLevel.NONE)
+    private transient EventBus eventBus;
+
+    @Autowired
+    @Getter(AccessLevel.NONE)
     private transient DeadlineManager deadlineManager;
 
     private String orderId;
+    private String paymentId;
     private String userId;
     private int expected;
     private BigDecimal totalAmount;
     private int reserved;
     private int failedCount;
-    private Set<UUID> successes = new HashSet<>();
+    private Set<Hold> successes = new HashSet<>();
     private Map<UUID, UUID> reservationWindows = new HashMap<>();
     private String deadlineId;
     private boolean reservationClosed;
+    private boolean paymentProcessed;
 
     @StartSaga
     @SagaEventHandler(associationProperty = "orderId")
@@ -74,6 +83,7 @@ public class OrderSaga {
         this.expected = event.getItems().size();
         this.totalAmount = event.getTotalAmount();
         this.reservationClosed = false;
+        this.paymentProcessed = false;
         this.reserved = 0;
         this.failedCount = 0;
         this.successes.clear();
@@ -115,10 +125,10 @@ public class OrderSaga {
     @SagaEventHandler(associationProperty = "orderId")
     public void handle(ProductReservedEvent event) {
         log.info("ProductReservedEvent is called for orderId: {} and productId: {}", event.orderId(), event.productId());
-        if (checkSagaState()) return;
+        if (hasReservationShortCircuited()) return;
 
         this.reserved++;
-        this.successes.add(event.productId());
+        this.successes.add(new Hold(event.productId(), event.quantity()));
 
         log.info("Updated saga state - reserved: {}, successes: {}", this.reserved, this.successes);
         log.info("Current saga state - reserved: {}, failedCount: {}, expected: {}",
@@ -129,7 +139,7 @@ public class OrderSaga {
     @SagaEventHandler(associationProperty = "orderId")
     public void handle(ProductReservationReleasedEvent event) {
         log.error("Product reservation failed for orderId: {} and productId: {}", event.orderId(), event.productId());
-        if (checkSagaState()) return;
+        if (hasReservationShortCircuited()) return;
 
         this.failedCount++;
         checkReservationPhaseComplete(event.orderId());
@@ -143,16 +153,13 @@ public class OrderSaga {
         if (pending > 0) this.failedCount += pending; // treat remaining as failed
         this.reservationClosed = true; // Ignore late reservation events
 
-        CurrentUnitOfWork.get().afterCommit(uow -> compensateTimeout());
+        CurrentUnitOfWork.get().afterCommit(uow -> compensateReservation("saga-timeout"));
     }
 
     private void checkReservationPhaseComplete(String orderId) {
         if (this.failedCount + this.reserved < this.expected) return;
 
-        if (this.deadlineId != null) {
-            deadlineManager.cancelSchedule("reservation-timeout", this.deadlineId);
-            this.deadlineId = null;
-        }
+        safeCancelDeadlineIfAny();
 
         if (this.failedCount == 0) {
             FetchUserPaymentDetailsQuery query = new FetchUserPaymentDetailsQuery(this.userId);
@@ -163,34 +170,125 @@ public class OrderSaga {
                 return;
             }
             log.info("successfully fetched user payment details for user: {}", user.firstName());
-            String paymentId = UUID.randomUUID().toString();
-            InitiatePaymentCommand initiatePaymentCommand = new InitiatePaymentCommand(
-                    paymentId,
-                    orderId,
-                    user.userId(),
-                    user.paymentDetails().cardNumber(),
-                    this.totalAmount,
-                    "Dollar",
-                    "Credit Card"
-            );
+            this.paymentId = UUID.randomUUID().toString();
 
             // Associate payment events with this saga
             SagaLifecycle.associateWith("paymentId", paymentId);
 
-            String paymentResult = null;
-            try {
-                paymentResult = commandGateway.sendAndWait(initiatePaymentCommand, 10, TimeUnit.SECONDS);
-            } catch (Exception e) {
-                log.error("Failed to process payment command: {}", e.getMessage());
-                // Start compensating transaction
-            }
-            if (paymentResult == null) {
-                log.error("No payment result found for payment command: {}", initiatePaymentCommand);
-                // Start compensating transaction
-            }
+            CurrentUnitOfWork.get().afterCommit(uow -> {
+                InitiatePaymentCommand initiatePaymentCommand = new InitiatePaymentCommand(
+                        paymentId,
+                        orderId,
+                        user.userId(),
+                        user.paymentDetails().cardNumber(),
+                        this.totalAmount,
+                        "Dollar",
+                        "Credit Card"
+                );
+                commandGateway.send(initiatePaymentCommand, (commandMessage, commandResultMessage) -> {
+                    if (commandResultMessage.isExceptional()) {
+                        Throwable exception = commandResultMessage.exceptionResult();
+                        log.error("Failed to process payment command: {}", exception.getMessage());
+                        compensateReservation("payment-failure");
+                    }
+                });
+            });
         } else {
-            successes.forEach(uuid -> {
-                ReleaseProductCommand release = new ReleaseProductCommand(uuid, orderId, "reservation-failure");
+            compensateReservation("reservation-failure");
+        }
+    }
+
+    @SagaEventHandler(associationProperty = "paymentId")
+    public void handle(PaymentSucceededEvent event) {
+        if (this.paymentProcessed) {
+            log.info("PaymentSucceededEvent already processed for orderId={}", orderId);
+            return;
+        }
+        this.paymentProcessed = true;
+        this.paymentId = event.paymentId();
+        log.info("Payment succeeded for orderId: {}, paymentId: {}", this.orderId, event.paymentId());
+
+        // send product confirm reservation for 2-phase reservation
+        CurrentUnitOfWork.get().afterCommit(uow -> {
+            var confirmFutures = successes.stream()
+                    .map(hold -> commandGateway.<String>send(
+                            new ConfirmProductReservationCommand(hold.productId(), orderId, hold.quantity())
+                    )).toList();
+            CompletableFuture.allOf(confirmFutures.toArray(CompletableFuture[]::new))
+                    .thenApply(v -> confirmFutures.stream().map(cf -> {
+                                try {
+                                    return cf.join();
+                                } catch (CompletionException ex) {
+                                    return ex;
+                                }
+                            }).toList()
+                    ).thenAccept(results -> {
+                        boolean anyFailed = results.stream().anyMatch(r -> r instanceof Throwable);
+                        if (anyFailed) {
+                            log.warn("One or more confirmations failed; compensating.");
+                            eventBus.publish(
+                                    GenericEventMessage.asEventMessage(new FailedConfirmReservationEvent(orderId))
+                            );
+                        } else {
+                            commandGateway.send(new ApproveOrderCommand(orderId));
+                            log.info("All confirmations succeeded. ApproveOrder sent for {}", orderId);
+                        }
+                    });
+        });
+    }
+
+    @SagaEventHandler(associationProperty = "orderId")
+    public void handle(OrderApprovedEvent event) {
+        log.info("Order successfully complete for orderId: {}", this.orderId);
+        SagaLifecycle.end();
+    }
+
+    @SagaEventHandler(associationProperty = "paymentId")
+    public void handle(PaymentFailedEvent event) {
+        if (this.paymentProcessed) {
+            log.info("PaymentFailedEvent already processed for orderId={}", orderId);
+            return;
+        }
+        this.paymentProcessed = true;
+        log.error("Payment failed for orderId: {}, reason: {}", this.orderId, event.reason());
+
+        CurrentUnitOfWork.get().afterCommit(uow -> compensateFailedPayment(event.paymentId()));
+    }
+
+    private boolean hasReservationShortCircuited() {
+        // Verify saga state is properly loaded
+        if (this.orderId == null) {
+            log.error("CRITICAL: Saga orderId is null! Saga state not properly loaded.");
+            return true;
+        }
+        if (this.reservationClosed) {
+            return true; // Ignore late success;
+        }
+        if (this.paymentProcessed) {
+            log.info("Payment already processed for orderId={}", orderId);
+            return true;
+        }
+        return false;
+    }
+
+    private UUID ensureReservationWindowFor(UUID productId) {
+        return reservationWindows.computeIfAbsent(productId, pid -> UUID.randomUUID());
+    }
+
+    private void safeCancelDeadlineIfAny() {
+        if (deadlineId == null) return;
+        if (CurrentUnitOfWork.isStarted()
+                && CurrentUnitOfWork.get().phase().isBefore(UnitOfWork.Phase.PREPARE_COMMIT)) {
+            deadlineManager.cancelSchedule("reservation-timeout", deadlineId);
+        }
+        deadlineId = null;
+    }
+
+    // Compensation helper methods
+    private void compensateReservation(String reason) {
+        Runnable action = () -> {
+            successes.forEach(hold -> {
+                ReleaseProductCommand release = new ReleaseProductCommand(hold.productId, orderId, reason);
                 commandGateway.send(release, (commandMessage, commandResultMessage) -> {
                     if (commandResultMessage.isExceptional()) {
                         Throwable exception = commandResultMessage.exceptionResult();
@@ -199,84 +297,37 @@ public class OrderSaga {
                 });
             });
             commandGateway.send(
-                    new CancelOrderCommand(orderId, "reservation-failure")
+                    new CancelOrderCommand(orderId, reason)
             );
-            SagaLifecycle.end();
-        }
+        };
 
         // If we’re already inside a UoW, side-effects run after commit
-        /*if (CurrentUnitOfWork.isStarted()
+        if (CurrentUnitOfWork.isStarted()
                 && CurrentUnitOfWork.get().phase().isBefore(UnitOfWork.Phase.AFTER_COMMIT)) {
             CurrentUnitOfWork.get().afterCommit(uow -> action.run());
         } else {
             action.run();
-        }*/
-    }
-
-    @SagaEventHandler(associationProperty = "paymentId")
-    public void handle(PaymentSucceededEvent event) {
-        log.info("Payment succeeded for orderId: {}, paymentId: {}", this.orderId, event.paymentId());
-
-        // send product confirm reservation for 2-phase reservation and then approve order
-        // TODO: Implement product confirmation and order approval logic
-        log.info("Payment succeeded - proceeding with order approval");
-
-        // End the saga successfully
-        SagaLifecycle.end();
-    }
-
-    @SagaEventHandler(associationProperty = "paymentId")
-    public void handle(PaymentFailedEvent event) {
-        log.error("Payment failed for orderId: {}, reason: {}", this.orderId, event.reason());
-        compensateFailedPayment(event.paymentId());
-    }
-
-    private void compensateTimeout() {
-        successes.forEach(uuid -> {
-            ReleaseProductCommand release = new ReleaseProductCommand(uuid, orderId, "saga-timeout");
-            commandGateway.send(release, (commandMessage, commandResultMessage) -> {
-                if (commandResultMessage.isExceptional()) {
-                    Throwable exception = commandResultMessage.exceptionResult();
-                    log.warn("Release reservation failed: {}", exception.getMessage());
-                }
-            });
-        });
-        commandGateway.send(
-                new CancelOrderCommand(orderId, "saga-timeout")
-        );
+        }
         SagaLifecycle.end();
     }
 
     private void compensateFailedPayment(String paymentId) {
         log.info("Starting compensation for failed payment: {}", paymentId);
-
-        // Release all reserved products
-        successes.forEach(uuid -> {
-            ReleaseProductCommand release = new ReleaseProductCommand(uuid, this.orderId, "payment-failure");
-            commandGateway.send(release, (commandMessage, commandResultMessage) -> {
-                if (commandResultMessage.isExceptional()) {
-                    Throwable exception = commandResultMessage.exceptionResult();
-                    log.warn("Release reservation failed during compensation: {}", exception.getMessage());
-                }
-            });
-        });
-        commandGateway.send(
-                new CancelOrderCommand(orderId, "payment-failure")
-        );
-        SagaLifecycle.end();
+        compensateReservation("payment-failure");
     }
 
-    private boolean checkSagaState() {
-        // Verify saga state is properly loaded
-        if (this.orderId == null) {
-            log.error("CRITICAL: Saga orderId is null! Saga state not properly loaded.");
-            this.reservationClosed = true;
-            return true;
+    @SagaEventHandler(associationProperty = "orderId")
+    public void on(FailedConfirmReservationEvent event) {
+        log.info("Starting compensation for failed reserve confirmation.");
+        if (hasReservationShortCircuited()) {
+            log.info("PaymentFailedEvent already processed for orderId={}", orderId);
+            return;
         }
-        return this.reservationClosed; // Ignore late success;
+        this.reservationClosed = true;
+        // TODO: revert payment transaction
+        compensateFailedPayment(this.paymentId);
     }
 
-    private UUID ensureReservationWindowFor(UUID productId) {
-        return reservationWindows.computeIfAbsent(productId, pid -> UUID.randomUUID());
+    record Hold(UUID productId, Integer quantity) {
     }
 }

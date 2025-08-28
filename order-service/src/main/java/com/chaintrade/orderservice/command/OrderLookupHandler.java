@@ -1,5 +1,6 @@
 package com.chaintrade.orderservice.command;
 
+import com.chaintrade.core.events.OrderApprovedEvent;
 import com.chaintrade.orderservice.core.data.OrderLookupEntity;
 import com.chaintrade.orderservice.core.data.OrderLookupRepository;
 import com.chaintrade.orderservice.core.data.OrderStatus;
@@ -35,6 +36,13 @@ public class OrderLookupHandler {
             item.setStatus(OrderStatus.CANCELLED);
             lookUpRepository.save(item);
         });
+    }
 
+    @EventHandler
+    public void on(OrderApprovedEvent event) {
+        lookUpRepository.findById(event.orderId()).ifPresent(item -> {
+            item.setStatus(OrderStatus.APPROVED);
+            lookUpRepository.save(item);
+        });
     }
 }

@@ -1,5 +1,7 @@
 package com.chaintrade.orderservice;
 
+import com.chaintrade.core.events.OrderApprovedEvent;
+import com.chaintrade.orderservice.command.ApproveOrderCommand;
 import com.chaintrade.orderservice.command.CancelOrderCommand;
 import com.chaintrade.orderservice.command.CreateOrderCommand;
 import com.chaintrade.orderservice.core.data.OrderItem;
@@ -7,6 +9,7 @@ import com.chaintrade.orderservice.core.data.OrderStatus;
 import com.chaintrade.orderservice.core.event.OrderCancelledEvent;
 import com.chaintrade.orderservice.core.event.OrderCreatedEvent;
 import lombok.NoArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.axonframework.commandhandling.CommandHandler;
 import org.axonframework.eventsourcing.EventSourcingHandler;
 import org.axonframework.modelling.command.AggregateIdentifier;
@@ -20,6 +23,7 @@ import java.util.List;
 
 @Aggregate(type = "order")
 @NoArgsConstructor
+@Slf4j
 public class OrderAggregate {
 
     @AggregateIdentifier
@@ -44,11 +48,23 @@ public class OrderAggregate {
     @CommandHandler
     public void handle(CancelOrderCommand command) {
         if (status == OrderStatus.CANCELLED) {
-            throw new IllegalStateException("Order is already cancelled");
+            log.warn("Order is already cancelled");
+            return;
         }
         AggregateLifecycle.apply(new OrderCancelledEvent(
                 command.orderId(),
                 command.reason()
+        ));
+    }
+
+    @CommandHandler
+    public void handle(ApproveOrderCommand command) {
+        if (status == OrderStatus.APPROVED) {
+            log.warn("Order is already cancelled");
+            return;
+        }
+        AggregateLifecycle.apply(new OrderApprovedEvent(
+                command.orderId()
         ));
     }
 
@@ -65,5 +81,10 @@ public class OrderAggregate {
     @EventSourcingHandler
     public void on(OrderCancelledEvent event) {
         this.status = OrderStatus.CANCELLED;
+    }
+
+    @EventSourcingHandler
+    public void on(OrderApprovedEvent event) {
+        this.status = OrderStatus.APPROVED;
     }
 } 

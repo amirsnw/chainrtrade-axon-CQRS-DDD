@@ -1,5 +1,6 @@
 package com.chaintrade.orderservice.query;
 
+import com.chaintrade.core.events.OrderApprovedEvent;
 import com.chaintrade.orderservice.core.data.OrderEntity;
 import com.chaintrade.orderservice.core.data.OrderRepository;
 import com.chaintrade.orderservice.core.data.OrderStatus;
@@ -54,9 +55,19 @@ public class OrderProjection {
 
     @EventHandler
     public void on(OrderCancelledEvent event) {
-        orderRepository.findById(event.orderId()).ifPresent(order -> {
-            order.setStatus(OrderStatus.CANCELLED);
-            orderRepository.save(order);
-        });
+        OrderEntity order = orderRepository.findById(event.orderId()).orElseThrow(
+                () -> new RuntimeException("Order not found")
+        );
+        order.setStatus(OrderStatus.CANCELLED);
+        orderRepository.save(order);
+    }
+
+    @EventHandler
+    public void on(OrderApprovedEvent event) {
+        OrderEntity order = orderRepository.findById(event.orderId()).orElseThrow(
+                () -> new RuntimeException("Order not found")
+        );
+        order.setStatus(OrderStatus.APPROVED);
+        orderRepository.save(order);
     }
 } 
